@@ -241,6 +241,8 @@ export class ProductsService implements OnModuleInit {
   constructor(@InjectModel(Product.name) private readonly productModel: Model<ProductDocument>) {}
 
   async onModuleInit() {
+    await this.migrateLegacyStockField();
+
     const count = await this.productModel.countDocuments();
     if (count === 0) {
       await this.productModel.insertMany(seedProducts);
@@ -352,6 +354,8 @@ export class ProductsService implements OnModuleInit {
   }
 
   private serialize(product: ProductDocument): ProductResponse {
+    const legacyStock = product.get("stock");
+
     return {
       id: product._id.toString(),
       name: product.name,
@@ -359,10 +363,52 @@ export class ProductsService implements OnModuleInit {
       price: product.price,
       image: product.image,
       category: product.category,
-      stockQuantity: product.stockQuantity ?? 0,
+      stockQuantity: this.normalizeStockValue(product.stockQuantity ?? legacyStock),
       status: product.status ?? DEFAULT_PRODUCT_STATUS,
       createdAt: product.createdAt instanceof Date ? product.createdAt.getTime() : Date.now(),
     };
+  }
+
+  private async migrateLegacyStockField(): Promise<void> {
+    const legacyProducts = await this.productModel
+      .find({
+        $or: [{ stockQuantity: { $exists: false } }, { stockQuantity: null }],
+      })
+      .select("_id stock stockQuantity")
+      .lean<Array<{ _id: string; stock?: unknown; stockQuantity?: unknown }>>()
+      .exec();
+
+    if (legacyProducts.length === 0) {
+      return;
+    }
+
+    const updates = legacyProducts.map((product) => ({
+      updateOne: {
+        filter: { _id: product._id },
+        update: {
+          $set: {
+            stockQuantity: this.normalizeStockValue(product.stockQuantity ?? product.stock),
+          },
+          $unset: {
+            stock: "",
+          },
+        },
+      },
+    }));
+
+    if (updates.length > 0) {
+      await this.productModel.bulkWrite(updates);
+      this.logger.log(`Migrated stock field for ${updates.length} product records`);
+    }
+  }
+
+  private normalizeStockValue(value: unknown): number {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue < 0) {
+      return 0;
+    }
+
+    return Math.trunc(numericValue);
   }
 
   private escapeRegex(value: string): string {
