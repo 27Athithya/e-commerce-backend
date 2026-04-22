@@ -240,7 +240,14 @@ export class ProductsService implements OnModuleInit {
 
   constructor(@InjectModel(Product.name) private readonly productModel: Model<ProductDocument>) {}
 
-  async onModuleInit() {
+  onModuleInit() {
+    // Do not block HTTP startup on database migration/seeding.
+    void this.initializeCatalog().catch((error: unknown) => {
+      this.logger.error("Catalog initialization failed", error as object);
+    });
+  }
+
+  private async initializeCatalog(): Promise<void> {
     await this.migrateLegacyStockField();
 
     const count = await this.productModel.countDocuments();
