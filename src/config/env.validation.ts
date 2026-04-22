@@ -38,9 +38,11 @@ export function validateEnv(env: EnvironmentVariables) {
     throw new Error("MONGODB_URI is required");
   }
 
+  const clientOrigin = env.CLIENT_ORIGIN ?? env.FRONTEND_URL;
+
   return {
     PORT: parsePort(env.PORT),
-    CLIENT_ORIGIN: validateOrigins(env.CLIENT_ORIGIN),
+    CLIENT_ORIGIN: validateOrigins(clientOrigin),
     MONGODB_URI: env.MONGODB_URI,
   };
 }

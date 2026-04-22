@@ -17,10 +17,12 @@ Create a `.env` file in the backend root:
 
 ```dotenv
 PORT=3001
-CLIENT_ORIGIN=http://localhost:3000
+CLIENT_ORIGIN=http://localhost:3000,https://your-frontend.vercel.app
 MONGODB_DB_NAME=ecommerce
 MONGODB_URI=<your-mongodb-connection-string>
 ```
+
+On Render, set `CLIENT_ORIGIN` to your Vercel domain and keep localhost in the list if you still want local development access.
 
 ## Install
 ```bash
