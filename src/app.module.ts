@@ -13,12 +13,14 @@ const mongoLogger = new Logger("MongoDB");
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [".env.local", ".env"],
+      ignoreEnvFile: process.env.NODE_ENV === "production",
       validate: validateEnv,
     }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         uri: configService.getOrThrow<string>("MONGODB_URI"),
+        lazyConnection: true,
         serverSelectionTimeoutMS: 10000,
         connectTimeoutMS: 10000,
         connectionFactory: (connection) => {
